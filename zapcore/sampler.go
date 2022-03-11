@@ -105,7 +105,7 @@ type SamplerOption interface {
 }
 
 // nopSamplingHook is the default hook used by sampler.
-func nopSamplingHook(Entry, SamplingDecision) {}
+func nopSamplingHook(*Entry, SamplingDecision) {}
 
 // SamplerHook registers a function  which will be called when Sampler makes a
 // decision.
@@ -119,7 +119,7 @@ func nopSamplingHook(Entry, SamplingDecision) {}
 //      dropped.Inc()
 //    }
 //  })
-func SamplerHook(hook func(entry Entry, dec SamplingDecision)) SamplerOption {
+func SamplerHook(hook func(entry *Entry, dec SamplingDecision)) SamplerOption {
 	return optionFunc(func(s *sampler) {
 		s.hook = hook
 	})
@@ -172,7 +172,7 @@ type sampler struct {
 	counts            *counters
 	tick              time.Duration
 	first, thereafter uint64
-	hook              func(Entry, SamplingDecision)
+	hook              func(*Entry, SamplingDecision)
 }
 
 // NewSampler creates a Core that samples incoming entries, which
@@ -212,10 +212,10 @@ func (s *sampler) Check(ent Entry, ce *CheckedEntry) *CheckedEntry {
 		counter := s.counts.get(ent.Level, ent.Message)
 		n := counter.IncCheckReset(ent.Time, s.tick)
 		if n > s.first && (s.thereafter == 0 || (n-s.first)%s.thereafter != 0) {
-			s.hook(ent, LogDropped)
+			s.hook(&ent, LogDropped)
 			return ce
 		}
-		s.hook(ent, LogSampled)
+		s.hook(&ent, LogSampled)
 	}
 	return s.Core.Check(ent, ce)
 }
