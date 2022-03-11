@@ -143,12 +143,12 @@ func TestConfigWithMissingAttributes(t *testing.T) {
 	}
 }
 
-func makeSamplerCountingHook() (h func(zapcore.Entry, zapcore.SamplingDecision),
+func makeSamplerCountingHook() (h func(*zapcore.Entry, zapcore.SamplingDecision),
 	dropped, sampled *atomic.Int64,
 ) {
 	dropped = new(atomic.Int64)
 	sampled = new(atomic.Int64)
-	h = func(_ zapcore.Entry, dec zapcore.SamplingDecision) {
+	h = func(_ *zapcore.Entry, dec zapcore.SamplingDecision) {
 		if dec&zapcore.LogDropped > 0 {
 			dropped.Add(1)
 		} else if dec&zapcore.LogSampled > 0 {

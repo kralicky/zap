@@ -231,10 +231,10 @@ func BenchmarkSampler_Check(b *testing.B) {
 	}
 }
 
-func makeSamplerCountingHook() (func(_ Entry, dec SamplingDecision), *atomic.Int64, *atomic.Int64) {
+func makeSamplerCountingHook() (func(_ *Entry, dec SamplingDecision), *atomic.Int64, *atomic.Int64) {
 	droppedCount := new(atomic.Int64)
 	sampledCount := new(atomic.Int64)
-	h := func(_ Entry, dec SamplingDecision) {
+	h := func(_ *Entry, dec SamplingDecision) {
 		if dec&LogDropped > 0 {
 			droppedCount.Add(1)
 		} else if dec&LogSampled > 0 {
