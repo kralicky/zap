@@ -42,7 +42,7 @@ type Logger struct {
 
 	development bool
 	addCaller   bool
-	onFatal     zapcore.CheckWriteAction // default is WriteThenFatal
+	onFatal     zapcore.CheckWriteHook // default is WriteThenFatal
 
 	name        string
 	errorOutput zapcore.WriteSyncer
@@ -288,12 +288,21 @@ func (log *Logger) check(lvl zapcore.Level, msg string) *zapcore.CheckedEntry {
 		ce = ce.Should(ent, zapcore.WriteThenPanic)
 	case zapcore.FatalLevel:
 		onFatal := log.onFatal
-		// Noop is the default value for CheckWriteAction, and it leads to
-		// continued execution after a Fatal which is unexpected.
-		if onFatal == zapcore.WriteThenNoop {
+		// nil or WriteThenNoop will lead to continued execution after
+		// a Fatal log entry, which is unexpected. For example,
+		//
+		//   f, err := os.Open(..)
+		//   if err != nil {
+		//     log.Fatal("cannot open", zap.Error(err))
+		//   }
+		//   fmt.Println(f.Name())
+		//
+		// The f.Name() will panic if we continue execution after the
+		// log.Fatal.
+		if onFatal == nil || onFatal == zapcore.WriteThenNoop {
 			onFatal = zapcore.WriteThenFatal
 		}
-		ce = ce.Should(ent, onFatal)
+		ce = ce.After(ent, onFatal)
 	case zapcore.DPanicLevel:
 		if log.development {
 			ce = ce.Should(ent, zapcore.WriteThenPanic)

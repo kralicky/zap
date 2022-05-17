@@ -345,8 +345,8 @@ func TestLoggerAddCaller(t *testing.T) {
 		{opts(AddCaller(), WithCaller(false)), `^undefined$`},
 		{opts(WithCaller(true)), `.+/logger_test.go:[\d]+$`},
 		{opts(WithCaller(true), WithCaller(false)), `^undefined$`},
-		{opts(AddCaller(), AddCallerSkip(1), AddCallerSkip(-1)), `.+/zap/logger_test.go:[\d]+$`},
-		{opts(AddCaller(), AddCallerSkip(1)), `.+/zap/common_test.go:[\d]+$`},
+		{opts(AddCaller(), AddCallerSkip(1), AddCallerSkip(-1)), `.+/logger_test.go:[\d]+$`},
+		{opts(AddCaller(), AddCallerSkip(1)), `.+/common_test.go:[\d]+$`},
 		{opts(AddCaller(), AddCallerSkip(1), AddCallerSkip(3)), `.+/src/runtime/.*:[\d]+$`},
 	}
 	for _, tt := range tests {
@@ -535,6 +535,17 @@ func TestLoggerConcurrent(t *testing.T) {
 	})
 }
 
+func TestLoggerFatalOnNoop(t *testing.T) {
+	exitStub := exit.Stub()
+	defer exitStub.Unstub()
+	core, _ := observer.New(InfoLevel)
+
+	// We don't allow a no-op fatal hook.
+	New(core, WithFatalHook(zapcore.WriteThenNoop)).Fatal("great sadness")
+	assert.True(t, exitStub.Exited, "must exit for WriteThenNoop")
+	assert.Equal(t, 1, exitStub.Code, "must exit with status 1 for WriteThenNoop")
+}
+
 func TestLoggerCustomOnFatal(t *testing.T) {
 	tests := []struct {
 		msg          string
@@ -577,6 +588,23 @@ func TestLoggerCustomOnFatal(t *testing.T) {
 			})
 		})
 	}
+}
+
+type customWriteHook struct {
+	called bool
+}
+
+func (h *customWriteHook) OnWrite(_ *zapcore.CheckedEntry, _ []Field) {
+	h.called = true
+}
+
+func TestLoggerWithFatalHook(t *testing.T) {
+	var h customWriteHook
+	withLogger(t, InfoLevel, opts(WithFatalHook(&h)), func(logger *Logger, logs *observer.ObservedLogs) {
+		logger.Fatal("great sadness")
+		assert.True(t, h.called)
+		assert.Equal(t, 1, logs.FilterLevelExact(FatalLevel).Len())
+	})
 }
 
 func TestNopLogger(t *testing.T) {
